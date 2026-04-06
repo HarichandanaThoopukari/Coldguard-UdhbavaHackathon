@@ -1,0 +1,176 @@
+{% extends 'base.html' %}
+
+{% block title %}Alerts - Cold Storage Monitoring{% endblock %}
+{% block page_title %}Alerts{% endblock %}
+{% block breadcrumb %}Home / Alerts{% endblock %}
+
+{% block content %}
+<!-- Alert Summary -->
+<div class="alert-summary-cards">
+    <div class="summary-card critical">
+        <div class="card-icon red">
+            <i class="fas fa-exclamation-circle"></i>
+        </div>
+        <div class="card-info">
+            <h3>{{ summary.critical }}</h3>
+            <p>Critical</p>
+        </div>
+    </div>
+    
+    <div class="summary-card warning">
+        <div class="card-icon orange">
+            <i class="fas fa-exclamation-triangle"></i>
+        </div>
+        <div class="card-info">
+            <h3>{{ summary.warning }}</h3>
+            <p>Warnings</p>
+        </div>
+    </div>
+    
+    <div class="summary-card info">
+        <div class="card-icon blue">
+            <i class="fas fa-info-circle"></i>
+        </div>
+        <div class="card-info">
+            <h3>{{ summary.info }}</h3>
+            <p>Info</p>
+        </div>
+    </div>
+    
+    <div class="summary-card total">
+        <div class="card-icon purple">
+            <i class="fas fa-bell"></i>
+        </div>
+        <div class="card-info">
+            <h3>{{ summary.total }}</h3>
+            <p>Total Active</p>
+        </div>
+    </div>
+</div>
+
+<!-- Alerts Filter -->
+<div class="alerts-filter">
+    <div class="filter-group">
+        <label>Filter by Severity:</label>
+        <select id="severityFilter" onchange="filterAlerts()">
+            <option value="all">All</option>
+            <option value="critical">Critical</option>
+            <option value="warning">Warning</option>
+            <option value="info">Info</option>
+        </select>
+    </div>
+    
+    <div class="filter-group">
+        <label>Status:</label>
+        <select id="statusFilter" onchange="filterAlerts()">
+            <option value="all">All</option>
+            <option value="active">Active Only</option>
+            <option value="acknowledged">Acknowledged</option>
+        </select>
+    </div>
+    
+    <button class="btn btn-outline" onclick="acknowledgeAll()">
+        <i class="fas fa-check-double"></i> Acknowledge All
+    </button>
+</div>
+
+<!-- Alerts Table -->
+<div class="alerts-table-container">
+    <table class="data-table alerts-table" id="alertsTable">
+        <thead>
+            <tr>
+                <th>Severity</th>
+                <th>Storage Unit</th>
+                <th>Type</th>
+                <th>Message</th>
+                <th>Temperature</th>
+                <th>Time</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for alert in alerts %}
+            <tr class="{{ alert.severity }}" data-severity="{{ alert.severity }}" 
+                data-acknowledged="{{ alert.is_acknowledged }}">
+                <td>
+                    <span class="severity-badge {{ alert.severity }}">
+                        {{ alert.severity|upper }}
+                    </span>
+                </td>
+                <td>{{ alert.unit_name }}</td>
+                <td>{{ alert.alert_type|replace('_', ' ')|title }}</td>
+                <td class="message-cell">{{ alert.message }}</td>
+                <td>
+                    {% if alert.temperature_reading %}
+                        {{ "%.1f"|format(alert.temperature_reading) }}°C
+                    {% else %}
+                        --
+                    {% endif %}
+                </td>
+                <td>{{ alert.created_at }}</td>
+                <td>
+                    {% if alert.is_acknowledged %}
+                        <span class="status-badge acknowledged">
+                            <i class="fas fa-check"></i> Acknowledged
+                        </span>
+                    {% else %}
+                        <span class="status-badge active">
+                            <i class="fas fa-exclamation"></i> Active
+                        </span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if not alert.is_acknowledged %}
+                    <button class="btn btn-sm btn-primary" onclick="acknowledgeAlert({{ alert.id }})">
+                        Acknowledge
+                    </button>
+                    {% else %}
+                    <span class="acknowledged-info">
+                        by {{ alert.acknowledged_by or 'System' }}
+                    </span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function filterAlerts() {
+    const severity = document.getElementById('severityFilter').value;
+    const status = document.getElementById('statusFilter').value;
+    const rows = document.querySelectorAll('#alertsTable tbody tr');
+    
+    rows.forEach(row => {
+        let show = true;
+        
+        if (severity !== 'all' && row.dataset.severity !== severity) {
+            show = false;
+        }
+        
+        if (status === 'active' && row.dataset.acknowledged === '1') {
+            show = false;
+        } else if (status === 'acknowledged' && row.dataset.acknowledged === '0') {
+            show = false;
+        }
+        
+        row.style.display = show ? '' : 'none';
+    });
+}
+
+async function acknowledgeAll() {
+    if (!confirm('Acknowledge all active alerts?')) return;
+    
+    const rows = document.querySelectorAll('#alertsTable tbody tr[data-acknowledged="0"]');
+    for (const row of rows) {
+        const btn = row.querySelector('button');
+        if (btn) btn.click();
+        await new Promise(r => setTimeout(r, 100));
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,243 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - Cold Storage Monitoring{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% block breadcrumb %}Home / Dashboard{% endblock %}
+
+{% block content %}
+<!-- Summary Cards -->
+<div class="summary-cards">
+    <div class="summary-card">
+        <div class="card-icon blue">
+            <i class="fas fa-warehouse"></i>
+        </div>
+        <div class="card-info">
+            <h3>{{ summary.total_units }}</h3>
+            <p>Storage Units</p>
+        </div>
+    </div>
+    
+    <div class="summary-card">
+        <div class="card-icon green">
+            <i class="fas fa-thermometer-half"></i>
+        </div>
+        <div class="card-info">
+            <h3>{{ summary.today_readings }}</h3>
+            <p>Today's Readings</p>
+        </div>
+    </div>
+    
+    <div class="summary-card {% if summary.active_alerts > 0 %}alert{% endif %}">
+        <div class="card-icon {% if summary.active_alerts > 0 %}red{% else %}orange{% endif %}">
+            <i class="fas fa-exclamation-triangle"></i>
+        </div>
+        <div class="card-info">
+            <h3>{{ summary.active_alerts }}</h3>
+            <p>Active Alerts</p>
+        </div>
+    </div>
+    
+    <div class="summary-card">
+        <div class="card-icon {% if summary.units_with_issues > 0 %}red{% else %}purple{% endif %}">
+            <i class="fas fa-exclamation-circle"></i>
+        </div>
+        <div class="card-info">
+            <h3>{{ summary.units_with_issues }}</h3>
+            <p>Units with Issues</p>
+        </div>
+    </div>
+</div>
+
+<!-- Storage Units Grid -->
+<div class="section-header">
+    <h2>Storage Units</h2>
+    <button class="btn btn-primary" onclick="refreshData()">
+        <i class="fas fa-sync-alt"></i> Refresh
+    </button>
+</div>
+
+<div class="units-grid">
+    {% for unit in units %}
+    <div class="unit-card {% if unit.active_alerts > 0 %}has-alert{% endif %}" 
+         data-unit-id="{{ unit.id }}">
+        <div class="unit-header">
+            <h3>{{ unit.name }}</h3>
+            <span class="storage-type">{{ unit.storage_type }}</span>
+        </div>
+        
+        <div class="unit-temp">
+            <div class="temp-display {% if unit.current_temp is none %}no-data{% elif unit.current_temp > unit.max_temp or unit.current_temp < unit.min_temp %}danger{% else %}normal{% endif %}">
+                <span class="temp-value">
+                    {% if unit.current_temp is not none %}
+                        {{ "%.1f"|format(unit.current_temp) }}°C
+                    {% else %}
+                        --
+                    {% endif %}
+                </span>
+                <span class="temp-icon">
+                    {% if unit.current_temp is not none and unit.current_temp > unit.max_temp %}
+                        <i class="fas fa-arrow-up"></i>
+                    {% elif unit.current_temp is not none and unit.current_temp < unit.min_temp %}
+                        <i class="fas fa-arrow-down"></i>
+                    {% else %}
+                        <i class="fas fa-check"></i>
+                    {% endif %}
+                </span>
+            </div>
+            <div class="temp-range">
+                Safe: {{ unit.min_temp }}°C to {{ unit.max_temp }}°C
+            </div>
+        </div>
+        
+                <div class="unit-stats">
+                <div class="stat">
+                    <i class="fas fa-tint"></i>
+                    <span>{% if unit.current_humidity %}{{ "%.0f"|format(unit.current_humidity) }}%{% else %}--{% endif %}</span>
+                </div>
+                <div class="stat">
+                    <i class="fas fa-box"></i>
+                    <span>{{ unit.capacity_tons }} tons</span>
+                </div>
+                {% if unit.active_alerts > 0 %}
+                <div class="stat alert">
+                    <i class="fas fa-bell"></i>
+                    <span>{{ unit.active_alerts }} alerts</span>
+                </div>
+                {% endif %}
+            </div>
+            
+            <div class="unit-actions">
+                <button class="btn btn-sm btn-outline" onclick="showUnitDetails({{ unit.id }})">
+                    <i class="fas fa-chart-line"></i> Details
+                </button>
+                <button class="btn btn-sm btn-primary" onclick="openAddReading({{ unit.id }})">
+                    <i class="fas fa-plus"></i> Add Reading
+                </button>
+            </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Temperature Chart Section -->
+<div class="chart-section">
+    <div class="section-header">
+        <h2>Temperature Trends</h2>
+        <div class="chart-controls">
+            <select id="chartUnitSelect" onchange="updateChart()">
+                {% for unit in units %}
+                <option value="{{ unit.id }}">{{ unit.name }}</option>
+                {% endfor %}
+            </select>
+            <select id="chartTimeRange" onchange="updateChart()">
+                <option value="6">Last 6 Hours</option>
+                <option value="12">Last 12 Hours</option>
+                <option value="24" selected>Last 24 Hours</option>
+                <option value="48">Last 48 Hours</option>
+                <option value="168">Last 7 Days</option>
+            </select>
+        </div>
+    </div>
+    <div class="chart-container">
+        <canvas id="temperatureChart"></canvas>
+    </div>
+</div>
+
+<!-- Recent Alerts -->
+<div class="alerts-section">
+    <div class="section-header">
+        <h2>Recent Alerts</h2>
+        <a href="{{ url_for('alerts_page') }}" class="btn btn-outline">View All</a>
+    </div>
+    
+    <div class="alerts-list">
+        {% if alerts %}
+            {% for alert in alerts %}
+            <div class="alert-item {{ alert.severity }}">
+                <div class="alert-icon">
+                    {% if alert.severity == 'critical' %}
+                        <i class="fas fa-exclamation-circle"></i>
+                    {% elif alert.severity == 'warning' %}
+                        <i class="fas fa-exclamation-triangle"></i>
+                    {% else %}
+                        <i class="fas fa-info-circle"></i>
+                    {% endif %}
+                </div>
+                <div class="alert-content">
+                    <p class="alert-message">{{ alert.message }}</p>
+                    <span class="alert-meta">
+                        {{ alert.unit_name }} • {{ alert.created_at }}
+                    </span>
+                </div>
+                <button class="btn btn-sm btn-ghost" onclick="acknowledgeAlert({{ alert.id }})">
+                    <i class="fas fa-check"></i>
+                </button>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="no-alerts">
+                <i class="fas fa-check-circle"></i>
+                <p>No active alerts. All systems normal.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Add Reading Modal -->
+<div class="modal" id="addReadingModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Add Temperature Reading</h3>
+            <button class="modal-close" onclick="closeModal('addReadingModal')">&times;</button>
+        </div>
+        <form id="addReadingForm" onsubmit="submitReading(event)">
+            <input type="hidden" id="readingUnitId" name="unit_id">
+            
+            <div class="form-group">
+                <label>Temperature (°C)</label>
+                <input type="number" step="0.1" id="readingTemp" name="temperature" required>
+            </div>
+            
+            <div class="form-group">
+                <label>Humidity (%)</label>
+                <input type="number" step="1" min="0" max="100" id="readingHumidity" name="humidity">
+            </div>
+            
+            <div class="form-group">
+                <label>Recorded By</label>
+                <input type="text" id="readingBy" name="recorded_by" value="Manual Entry">
+            </div>
+            
+            <div class="form-actions">
+                <button type="button" class="btn btn-outline" onclick="closeModal('addReadingModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Reading</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Unit Details Modal -->
+<div class="modal" id="unitDetailsModal">
+    <div class="modal-content modal-large">
+        <div class="modal-header">
+            <h3 id="unitDetailsTitle">Unit Details</h3>
+            <button class="modal-close" onclick="closeModal('unitDetailsModal')">&times;</button>
+        </div>
+        <div class="modal-body" id="unitDetailsContent">
+            <!-- Loaded dynamically -->
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Initialize dashboard
+document.addEventListener('DOMContentLoaded', function() {
+    initTemperatureChart();
+    updateAlertBadge();
+    
+    // Auto-refresh every 60 seconds
+    setInterval(refreshData, 60000);
+});
+</script>
+{% endblock %}

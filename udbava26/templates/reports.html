@@ -1,0 +1,225 @@
+{% extends 'base.html' %}
+
+{% block title %}Reports - Cold Storage Monitoring{% endblock %}
+{% block page_title %}Reports{% endblock %}
+{% block breadcrumb %}Home / Reports{% endblock %}
+
+{% block content %}
+<!-- Report Generation -->
+<div class="report-actions card">
+    <h3>Generate Report</h3>
+    <form id="generateReportForm" class="report-form">
+        <div class="form-row">
+            <div class="form-group">
+                <label>Storage Unit</label>
+                <select id="reportUnit" name="unit_id">
+                    <option value="">All Units</option>
+                    {% for unit in units %}
+                    <option value="{{ unit.id }}">{{ unit.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>Date</label>
+                <input type="date" id="reportDate" name="date" value="{{ today }}">
+            </div>
+            
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-file-alt"></i> Generate Report
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Reports Table -->
+<div class="section-header">
+    <h2>Daily Reports</h2>
+</div>
+
+<div class="reports-table-container">
+    <table class="data-table reports-table">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Storage Unit</th>
+                <th>Min Temp</th>
+                <th>Max Temp</th>
+                <th>Avg Temp</th>
+                <th>Readings</th>
+                <th>Alerts</th>
+                <th>Power Issues</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for report in reports %}
+            <tr>
+                <td>{{ report.report_date }}</td>
+                <td>{{ report.unit_name }}</td>
+                <td>{{ "%.1f"|format(report.min_temp) if report.min_temp else '--' }}°C</td>
+                <td>{{ "%.1f"|format(report.max_temp) if report.max_temp else '--' }}°C</td>
+                <td>{{ "%.1f"|format(report.avg_temp) if report.avg_temp else '--' }}°C</td>
+                <td>{{ report.total_readings }}</td>
+                <td>
+                    <span class="{% if report.alerts_count > 0 %}text-warning{% endif %}">
+                        {{ report.alerts_count }}
+                    </span>
+                </td>
+                <td>
+                    <span class="{% if report.power_failures_count > 0 %}text-danger{% endif %}">
+                        {{ report.power_failures_count }}
+                    </span>
+                </td>
+                <td>
+                    <span class="status-badge {{ report.status|lower|replace(' ', '-') }}">
+                        {{ report.status }}
+                    </span>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Analytics Section -->
+<div class="analytics-section">
+    <div class="section-header">
+        <h2>Analytics</h2>
+        <select id="analyticsUnit" onchange="loadAnalytics()">
+            {% for unit in units %}
+            <option value="{{ unit.id }}">{{ unit.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    
+    <div class="analytics-grid">
+        <div class="analytics-card">
+            <h4>Daily Temperature Range</h4>
+            <canvas id="analyticsChart"></canvas>
+        </div>
+        
+        <div class="analytics-card">
+            <h4>Alert Distribution</h4>
+            <canvas id="alertDistributionChart"></canvas>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let analyticsChart, alertChart;
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadAnalytics();
+    
+    document.getElementById('generateReportForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const unitId = document.getElementById('reportUnit').value;
+        const date = document.getElementById('reportDate').value;
+        
+        try {
+            showLoading();
+            const response = await fetch('/api/reports/generate', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({unit_id: unitId || null, date: date})
+            });
+            const data = await response.json();
+            hideLoading();
+            
+            if (data.success) {
+                showToast('Report generated successfully!', 'success');
+                location.reload();
+            }
+        } catch (error) {
+            hideLoading();
+            showToast('Failed to generate report', 'error');
+        }
+    });
+});
+
+async function loadAnalytics() {
+    const unitId = document.getElementById('analyticsUnit').value;
+    
+    try {
+        const response = await fetch(`/api/analytics/${unitId}?days=7`);
+        const data = await response.json();
+        
+        if (data.success) {
+            renderAnalyticsChart(data.data.daily_stats);
+            renderAlertDistributionChart(data.data.alert_distribution);
+        }
+    } catch (error) {
+        console.error('Failed to load analytics:', error);
+    }
+}
+
+function renderAnalyticsChart(stats) {
+    const ctx = document.getElementById('analyticsChart').getContext('2d');
+    
+    if (analyticsChart) analyticsChart.destroy();
+    
+    analyticsChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: stats.map(s => s.date),
+            datasets: [
+                {
+                    label: 'Min Temp',
+                    data: stats.map(s => s.min_temp),
+                    borderColor: '#3498db',
+                    fill: false
+                },
+                {
+                    label: 'Avg Temp',
+                    data: stats.map(s => s.avg_temp),
+                    borderColor: '#2ecc71',
+                    fill: false
+                },
+                {
+                    label: 'Max Temp',
+                    data: stats.map(s => s.max_temp),
+                    borderColor: '#e74c3c',
+                    fill: false
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    title: {display: true, text: 'Temperature (°C)'}
+                }
+            }
+        }
+    });
+}
+
+function renderAlertDistributionChart(alerts) {
+    const ctx = document.getElementById('alertDistributionChart').getContext('2d');
+    
+    if (alertChart) alertChart.destroy();
+    
+    const types = {};
+    alerts.forEach(a => {
+        types[a.alert_type] = (types[a.alert_type] || 0) + a.count;
+    });
+    
+    alertChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: Object.keys(types).map(t => t.replace('_', ' ')),
+            datasets: [{
+                data: Object.values(types),
+                backgroundColor: ['#e74c3c', '#f39c12', '#3498db', '#9b59b6']
+            }]
+        },
+        options: {
+            responsive: true
+        }
+    });
+}
+</script>
+{% endblock %}

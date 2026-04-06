@@ -1,0 +1,136 @@
+{% extends 'base.html' %}
+
+{% block title %}Settings - Cold Storage Monitoring{% endblock %}
+{% block page_title %}Settings{% endblock %}
+{% block breadcrumb %}Home / Settings{% endblock %}
+
+{% block content %}
+<div class="settings-grid">
+    <!-- Storage Units Settings -->
+    <div class="settings-card">
+        <h3><i class="fas fa-warehouse"></i> Storage Units</h3>
+        <p>Manage storage unit configurations and temperature thresholds.</p>
+        
+        <div class="units-config-list">
+            {% for unit in units %}
+            <div class="unit-config-item">
+                <div class="unit-config-info">
+                    <strong>{{ unit.name }}</strong>
+                    <span class="storage-type">{{ unit.storage_type }}</span>
+                </div>
+                <div class="unit-config-temps">
+                    <span>{{ unit.min_temp }}°C - {{ unit.max_temp }}°C</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <!-- Notification Settings -->
+    <div class="settings-card">
+        <h3><i class="fas fa-bell"></i> Notifications</h3>
+        <p>Configure alert notifications and thresholds.</p>
+        
+        <form class="settings-form">
+            <div class="setting-item">
+                <label class="toggle-label">
+                    <span>High Temperature Alerts</span>
+                    <input type="checkbox" checked>
+                    <span class="toggle"></span>
+                </label>
+            </div>
+            
+            <div class="setting-item">
+                <label class="toggle-label">
+                    <span>Low Temperature Alerts</span>
+                    <input type="checkbox" checked>
+                    <span class="toggle"></span>
+                </label>
+            </div>
+            
+            <div class="setting-item">
+                <label class="toggle-label">
+                    <span>Power Failure Alerts</span>
+                    <input type="checkbox" checked>
+                    <span class="toggle"></span>
+                </label>
+            </div>
+            
+            <div class="setting-item">
+                <label class="toggle-label">
+                    <span>Daily Reports</span>
+                    <input type="checkbox" checked>
+                    <span class="toggle"></span>
+                </label>
+            </div>
+        </form>
+    </div>
+    
+    <!-- System Info -->
+    <div class="settings-card">
+        <h3><i class="fas fa-info-circle"></i> System Information</h3>
+        
+        <div class="system-info-list">
+            <div class="info-item">
+                <span>Version</span>
+                <strong>1.0.0</strong>
+            </div>
+            <div class="info-item">
+                <span>Database</span>
+                <strong>SQLite</strong>
+            </div>
+            <div class="info-item">
+                <span>Total Storage Units</span>
+                <strong>{{ units|length }}</strong>
+            </div>
+            <div class="info-item">
+                <span>Data Retention</span>
+                <strong>365 days</strong>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Data Management -->
+    <div class="settings-card">
+        <h3><i class="fas fa-database"></i> Data Management</h3>
+        <p>Export data and manage database.</p>
+        
+        <div class="data-actions">
+            <button class="btn btn-outline" onclick="exportData()">
+                <i class="fas fa-download"></i> Export Data (CSV)
+            </button>
+            <button class="btn btn-outline" onclick="generateAllReports()">
+                <i class="fas fa-file-alt"></i> Generate All Reports
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function exportData() {
+    showToast('Data export feature coming soon!', 'info');
+}
+
+async function generateAllReports() {
+    try {
+        showLoading();
+        const response = await fetch('/api/reports/generate', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({})
+        });
+        const data = await response.json();
+        hideLoading();
+        
+        if (data.success) {
+            showToast(`Generated ${data.reports.length} reports!`, 'success');
+        }
+    } catch (error) {
+        hideLoading();
+        showToast('Failed to generate reports', 'error');
+    }
+}
+</script>
+{% endblock %}
