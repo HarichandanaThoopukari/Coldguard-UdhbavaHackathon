@@ -11,7 +11,9 @@ The focus is on system design, logic, data handling, and documentation, without 
 
 To design a system that maintains temperature records, tracks power failures, sends alerts for abnormal values, supports multiple storage units, and allows remote monitoring through a software application.
 
-📘 Functional Features
+
+📘 Functional Features:
+
 Allow users to record temperature values (manual/digital input).
 Store all readings in the database.
 Detect abnormal temperature changes and trigger alerts automatically.
@@ -24,6 +26,7 @@ Maintain historical logs for analytics.
 Provide remote monitoring through a web/mobile interface.
 Notify users via messages (SMS/Email).
 Provide basic analytics and visualizations.
+
 📚 Background
 Workers manually check temperatures and write them in notebooks.
 These records may be inaccurate, incomplete, or misplaced.
@@ -67,7 +70,9 @@ Multi-storage management
 
 This software-first architecture aligns with project constraints and avoids hardware dependencies.
 
-🔑 Key Components
+
+🔑 Key Components:
+
 Backend (Core System)
 Data entry API
 Alert/notification engine
@@ -83,7 +88,10 @@ Storage unit selection
 Message notification panel
 Database
 Tables for temperature, users, units, reports, maintenance logs, and power failures
+
+
 🔁 Data Flow Summary
+
 User enters temperature/power status in the system
 Backend validates and saves the data
 If temperature crosses limits, backend triggers an alert
@@ -99,7 +107,10 @@ Modular backend architecture to support future upgrades
 Web/mobile UI for better accessibility
 Using free tools and open-source technologies to meet constraints
 Storing historical data to provide meaningful analytics
+
+
 📌 Constraints
+
 No sensors or hardware devices
 Must use only free tools
 Limited development time
@@ -122,20 +133,29 @@ Storage managers/supervisors
 Technicians
 Software development team
 Dashboard users (remote monitors)
-❌ Existing System Limitations
+
+
+❌ Existing System Limitations:
+
 Fully manual and error-prone
 No automatic alerts
 Paper logs can be lost/damaged
 No historical analytics
 No remote monitoring
 Poor tracking of power failures
-🤝 Assumptions
+
+
+🤝 Assumptions:
+
 Temperature values are entered manually but accurately
 Basic internet access is available
 Users know how to use digital systems
 Threshold values are predefined
 Storage units have unique identification numbers
-🚀 Future Scope
+
+
+🚀 Future Scope:
+
 Integrate actual IoT sensors in next version
 AI-based spoilage prediction
 Automated cooling control
